@@ -54,6 +54,7 @@
     <string name="menu_select_all">Select all</string>
     <string name="menu_deselect_all">Deselect all</string>
     <string name="menu_font_size">Font size</string>
+    <string name="menu_bg_color">Background color</string>
     <string name="menu_font_small">Small</string>
     <string name="menu_font_normal">Medium</string>
     <string name="menu_font_large">Large</string>

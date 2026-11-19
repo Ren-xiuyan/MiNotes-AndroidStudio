@@ -16,6 +16,7 @@
 
 package net.micode.notes.ui;
 
+import android.app.ActionBar;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.AlertDialog;
@@ -162,6 +163,13 @@ public class NoteEditActivity extends Activity implements OnClickListener,
         super.onCreate(savedInstanceState);
         // 绑定便签编辑界面布局。
         this.setContentView(R.layout.note_edit);
+
+        ActionBar actionBar = getActionBar();
+        if (actionBar != null) {
+            actionBar.show();
+            actionBar.setDisplayShowTitleEnabled(false);
+            actionBar.setDisplayShowHomeEnabled(false);
+        }
 
         // 首次创建时根据 Intent 判断是查看、新建还是编辑便签。
         if (savedInstanceState == null && !initActivityState(getIntent())) {
@@ -457,9 +465,7 @@ public class NoteEditActivity extends Activity implements OnClickListener,
     public void onClick(View v) {
         int id = v.getId();
         if (id == R.id.btn_set_bg_color) {
-            mNoteBgColorSelector.setVisibility(View.VISIBLE);
-            findViewById(sBgSelectorSelectionMap.get(mWorkingNote.getBgColorId())).setVisibility(
-                    View.VISIBLE);
+            showBackgroundColorSelector();
         } else if (sBgSelectorBtnsMap.containsKey(id)) {
             findViewById(sBgSelectorSelectionMap.get(mWorkingNote.getBgColorId())).setVisibility(
                     View.GONE);
@@ -506,6 +512,15 @@ public class NoteEditActivity extends Activity implements OnClickListener,
             return true;
         }
         return false;
+    }
+
+    /**
+     * 显示背景颜色选择面板，并标记当前颜色。
+     */
+    private void showBackgroundColorSelector() {
+        mNoteBgColorSelector.setVisibility(View.VISIBLE);
+        findViewById(sBgSelectorSelectionMap.get(mWorkingNote.getBgColorId())).setVisibility(
+                View.VISIBLE);
     }
 
     /**
@@ -572,6 +587,9 @@ public class NoteEditActivity extends Activity implements OnClickListener,
                         });
                 builder.setNegativeButton(android.R.string.cancel, null);
                 builder.show();
+                break;
+            case R.id.menu_bg_color:
+                showBackgroundColorSelector();
                 break;
             case R.id.menu_font_size:
                 mFontSizeSelector.setVisibility(View.VISIBLE);

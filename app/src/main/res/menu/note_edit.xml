@@ -27,6 +27,10 @@
         android:title="@string/menu_delete"/>
 
     <item
+        android:id="@+id/menu_bg_color"
+        android:title="@string/menu_bg_color"/>
+
+    <item
         android:id="@+id/menu_font_size"
         android:title="@string/menu_font_size"/>
 
