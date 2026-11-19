@@ -66,4 +66,13 @@
         <item name="android:displayOptions" />
         <item name="android:visibility">gone</item>
     </style>
+
+    <!-- 列表页需要可见的 ActionBar，用于承载“批量操作”等菜单入口。 -->
+    <style name="NoteListTheme" parent="@android:style/Theme.Holo.Light">
+        <item name="android:actionBarStyle">@style/NoteListActionBarStyle</item>
+    </style>
+
+    <style name="NoteListActionBarStyle" parent="@android:style/Widget.Holo.Light.ActionBar.Solid">
+        <item name="android:displayOptions">showHome|showTitle</item>
+    </style>
 </resources>

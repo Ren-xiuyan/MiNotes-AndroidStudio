@@ -100,6 +100,7 @@ public class NotesListAdapter extends CursorAdapter {
     public void setChoiceMode(boolean mode) {
         mSelectedIndex.clear();
         mChoiceMode = mode;
+        notifyDataSetChanged();
     }
 
     /**
