@@ -30,6 +30,10 @@
     <string name="format_date_ymd">yyyyMMdd</string>
     <string name="format_datetime_mdhm">MM月dd日 kk:mm</string>
     <string name="notealert_ok">知道了</string>
+    <string name="reminder_channel_name">便籤提醒</string>
+    <string name="reminder_channel_description">便籤到期提醒通知</string>
+    <string name="reminder_notification_title">便籤提醒</string>
+    <string name="reminder_notification_text">點擊查看便籤</string>
     <string name="notealert_enter">查看</string>
     <string name="note_link_tel">呼叫電話</string>
     <string name="note_link_email">發送郵件</string>

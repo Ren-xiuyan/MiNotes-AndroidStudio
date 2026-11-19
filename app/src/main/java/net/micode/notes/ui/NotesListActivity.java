@@ -16,6 +16,7 @@
 
 package net.micode.notes.ui;
 
+import android.Manifest;
 import android.app.ActionBar;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -28,8 +29,10 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.text.Editable;
@@ -141,6 +144,7 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
 
     private final static int REQUEST_CODE_OPEN_NODE = 102;
     private final static int REQUEST_CODE_NEW_NODE  = 103;
+    private final static int REQUEST_CODE_POST_NOTIFICATIONS = 104;
 
     /**
      * 初始化便签列表界面，并在首次启动时插入介绍便签。
@@ -156,6 +160,14 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
             actionBar.show();
             actionBar.setDisplayShowTitleEnabled(true);
             actionBar.setDisplayShowHomeEnabled(false);
+        }
+
+        // Android 13+ 需要运行时申请通知权限，否则便签提醒无法显示。
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS },
+                    REQUEST_CODE_POST_NOTIFICATIONS);
         }
 
         initResources();
