@@ -1,0 +1,30 @@
+# Gradle
+.gradle/
+build/
+app/build/
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Built APKs
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Legacy Eclipse build output
+bin/
+gen/
+project.properties
+.settings/
+.classpath
+.project

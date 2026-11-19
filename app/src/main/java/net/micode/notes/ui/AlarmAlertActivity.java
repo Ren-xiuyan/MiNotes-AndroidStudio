@@ -1,0 +1,186 @@
+/*
+ * Copyright (c) 2010-2011, The MiCode Open Source Community (www.micode.net)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package net.micode.notes.ui;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.DialogInterface.OnClickListener;
+import android.content.DialogInterface.OnDismissListener;
+import android.content.Intent;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.media.RingtoneManager;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.PowerManager;
+import android.provider.Settings;
+import android.view.Window;
+import android.view.WindowManager;
+
+import net.micode.notes.R;
+import net.micode.notes.data.Notes;
+import net.micode.notes.tool.DataUtils;
+
+import java.io.IOException;
+
+/**
+ * 便签提醒界面。显示到期便签的标题和摘要，并播放提醒铃声。
+ */
+public class AlarmAlertActivity extends Activity implements OnClickListener, OnDismissListener {
+    private long mNoteId;
+    private String mSnippet;
+    private static final int SNIPPET_PREW_MAX_LEN = 60;
+    MediaPlayer mPlayer;
+
+    /**
+     * 初始化提醒界面，加载便签摘要并准备播放铃声。
+     */
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        // 锁屏时也显示提醒，并在屏幕熄灭时主动点亮。
+        final Window win = getWindow();
+        win.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
+
+        if (!isScreenOn()) {
+            win.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                    | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                    | WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
+                    | WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR);
+        }
+
+        Intent intent = getIntent();
+
+        // 从 Intent 中解析便签 ID，并截取用于展示的摘要。
+        try {
+            mNoteId = Long.valueOf(intent.getData().getPathSegments().get(1));
+            mSnippet = DataUtils.getSnippetById(this.getContentResolver(), mNoteId);
+            mSnippet = mSnippet.length() > SNIPPET_PREW_MAX_LEN ? mSnippet.substring(0,
+                    SNIPPET_PREW_MAX_LEN) + getResources().getString(R.string.notelist_string_info)
+                    : mSnippet;
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+            return;
+        }
+
+        mPlayer = new MediaPlayer();
+        // 便签仍然存在时才显示提醒，否则直接结束界面。
+        if (DataUtils.visibleInNoteDatabase(getContentResolver(), mNoteId, Notes.TYPE_NOTE)) {
+            showActionDialog();
+            playAlarmSound();
+        } else {
+            finish();
+        }
+    }
+
+    /**
+     * 判断当前屏幕是否处于点亮状态。
+     */
+    private boolean isScreenOn() {
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        return pm.isScreenOn();
+    }
+
+    /**
+     * 读取系统闹钟铃声并循环播放。
+     */
+    private void playAlarmSound() {
+        Uri url = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM);
+
+        // 读取系统静音设置，决定闹钟使用的音频流。
+        int silentModeStreams = Settings.System.getInt(getContentResolver(),
+                Settings.System.MODE_RINGER_STREAMS_AFFECTED, 0);
+
+        if ((silentModeStreams & (1 << AudioManager.STREAM_ALARM)) != 0) {
+            mPlayer.setAudioStreamType(silentModeStreams);
+        } else {
+            mPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
+        }
+        // 设置铃声数据源并循环播放提醒音。
+        try {
+            mPlayer.setDataSource(this, url);
+            mPlayer.prepare();
+            mPlayer.setLooping(true);
+            mPlayer.start();
+        } catch (IllegalArgumentException e) {
+
+            e.printStackTrace();
+        } catch (SecurityException e) {
+
+            e.printStackTrace();
+        } catch (IllegalStateException e) {
+
+            e.printStackTrace();
+        } catch (IOException e) {
+
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 显示查看便签或关闭提醒的对话框。
+     */
+    private void showActionDialog() {
+        AlertDialog.Builder dialog = new AlertDialog.Builder(this);
+        dialog.setTitle(R.string.app_name);
+        dialog.setMessage(mSnippet);
+        dialog.setPositiveButton(R.string.notealert_ok, this);
+        if (isScreenOn()) {
+            dialog.setNegativeButton(R.string.notealert_enter, this);
+        }
+        dialog.show().setOnDismissListener(this);
+    }
+
+    /**
+     * 点击回调：根据控件 ID 执行对应操作。
+     */
+    public void onClick(DialogInterface dialog, int which) {
+        switch (which) {
+            case DialogInterface.BUTTON_NEGATIVE:
+                Intent intent = new Intent(this, NoteEditActivity.class);
+                intent.setAction(Intent.ACTION_VIEW);
+                intent.putExtra(Intent.EXTRA_UID, mNoteId);
+                startActivity(intent);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * 对话框关闭回调：停止提醒音并结束界面。
+     */
+    public void onDismiss(DialogInterface dialog) {
+        stopAlarmSound();
+        finish();
+    }
+
+    /**
+     * 停止播放提醒铃声并释放播放器。
+     */
+    private void stopAlarmSound() {
+        if (mPlayer != null) {
+            mPlayer.stop();
+            mPlayer.release();
+            mPlayer = null;
+        }
+    }
+}
