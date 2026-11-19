@@ -35,6 +35,7 @@ import android.view.WindowManager;
 
 import net.micode.notes.R;
 import net.micode.notes.data.Notes;
+import net.micode.notes.tool.AlarmNotificationHelper;
 import net.micode.notes.tool.DataUtils;
 
 import java.io.IOException;
@@ -81,6 +82,7 @@ public class AlarmAlertActivity extends Activity implements OnClickListener, OnD
             return;
         }
 
+        AlarmNotificationHelper.cancel(this, mNoteId);
         mPlayer = new MediaPlayer();
         // 便签仍然存在时才显示提醒，否则直接结束界面。
         if (DataUtils.visibleInNoteDatabase(getContentResolver(), mNoteId, Notes.TYPE_NOTE)) {
@@ -182,5 +184,15 @@ public class AlarmAlertActivity extends Activity implements OnClickListener, OnD
             mPlayer.release();
             mPlayer = null;
         }
+    }
+
+    /**
+     * 销毁界面时取消对应通知，避免用户关闭提醒后通知仍然残留。
+     */
+    @Override
+    protected void onDestroy() {
+        stopAlarmSound();
+        AlarmNotificationHelper.cancel(this, mNoteId);
+        super.onDestroy();
     }
 }

@@ -58,6 +58,7 @@ import net.micode.notes.data.Notes;
 import net.micode.notes.data.Notes.TextNote;
 import net.micode.notes.model.WorkingNote;
 import net.micode.notes.model.WorkingNote.NoteSettingChangedListener;
+import net.micode.notes.tool.AlarmScheduler;
 import net.micode.notes.tool.DataUtils;
 import net.micode.notes.tool.ResourceParser;
 import net.micode.notes.tool.ResourceParser.TextAppearanceResources;
@@ -708,7 +709,7 @@ public class NoteEditActivity extends Activity implements OnClickListener,
             if(!set) {
                 alarmManager.cancel(pendingIntent);
             } else {
-                alarmManager.set(AlarmManager.RTC_WAKEUP, date, pendingIntent);
+                AlarmScheduler.schedule(this, date, pendingIntent);
             }
         } else {
 

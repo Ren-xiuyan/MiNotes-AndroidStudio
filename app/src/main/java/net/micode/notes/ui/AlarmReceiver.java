@@ -17,20 +17,40 @@
 package net.micode.notes.ui;
 
 import android.content.BroadcastReceiver;
+import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
+
+import net.micode.notes.tool.AlarmNotificationHelper;
+import net.micode.notes.tool.DataUtils;
 
 /**
- * 便签提醒广播接收器。收到闹钟广播后启动提醒界面。
+ * 便签提醒广播接收器。收到闹钟广播后显示高优先级通知，并通过全屏 Intent 打开提醒界面。
  */
 public class AlarmReceiver extends BroadcastReceiver {
+
     /**
-     * 收到闹钟广播后启动提醒界面。
+     * 收到闹钟广播后读取便签摘要并显示提醒通知。
      */
     @Override
     public void onReceive(Context context, Intent intent) {
-        intent.setClass(context, AlarmAlertActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        context.startActivity(intent);
+        Uri data = intent.getData();
+        if (data == null) {
+            return;
+        }
+
+        long noteId;
+        try {
+            noteId = ContentUris.parseId(data);
+        } catch (RuntimeException e) {
+            return;
+        }
+        if (noteId <= 0) {
+            return;
+        }
+
+        String snippet = DataUtils.getSnippetById(context.getContentResolver(), noteId);
+        AlarmNotificationHelper.showReminder(context, noteId, snippet);
     }
 }

@@ -16,7 +16,6 @@
 
 package net.micode.notes.ui;
 
-import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.ContentUris;
@@ -26,6 +25,7 @@ import android.database.Cursor;
 
 import net.micode.notes.data.Notes;
 import net.micode.notes.data.Notes.NoteColumns;
+import net.micode.notes.tool.AlarmScheduler;
 
 /**
  * 开机提醒初始化接收器。系统启动后重新注册所有尚未到期的便签提醒。
@@ -60,9 +60,7 @@ public class AlarmInitReceiver extends BroadcastReceiver {
                     sender.setData(ContentUris.withAppendedId(Notes.CONTENT_NOTE_URI, c.getLong(COLUMN_ID)));
                     PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0, sender,
                             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-                    AlarmManager alermManager = (AlarmManager) context
-                            .getSystemService(Context.ALARM_SERVICE);
-                    alermManager.set(AlarmManager.RTC_WAKEUP, alertDate, pendingIntent);
+                    AlarmScheduler.schedule(context, alertDate, pendingIntent);
                 } while (c.moveToNext());
             }
             c.close();
