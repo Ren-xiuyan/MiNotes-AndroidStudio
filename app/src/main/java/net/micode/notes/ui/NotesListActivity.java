@@ -16,6 +16,7 @@
 
 package net.micode.notes.ui;
 
+import android.app.ActionBar;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -148,6 +149,15 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.note_list);
+
+        // 显示 ActionBar，让现代设备可以通过右上角溢出菜单访问列表操作。
+        ActionBar actionBar = getActionBar();
+        if (actionBar != null) {
+            actionBar.show();
+            actionBar.setDisplayShowTitleEnabled(true);
+            actionBar.setDisplayShowHomeEnabled(false);
+        }
+
         initResources();
 
         setAppInfoFromRawRes();
@@ -264,7 +274,7 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
             getMenuInflater().inflate(R.menu.note_list_options, menu);
             menu.findItem(R.id.delete).setOnMenuItemClickListener(this);
             mMoveMenu = menu.findItem(R.id.move);
-            if (mFocusNoteDataItem.getParentId() == Notes.ID_CALL_RECORD_FOLDER
+            if (mCurrentFolderId == Notes.ID_CALL_RECORD_FOLDER
                     || DataUtils.getUserFolderCount(mContentResolver) == 0) {
                 mMoveMenu.setVisible(false);
             } else {
@@ -535,6 +545,21 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
         intent.setAction(Intent.ACTION_INSERT_OR_EDIT);
         intent.putExtra(Notes.INTENT_EXTRA_FOLDER_ID, mCurrentFolderId);
         this.startActivityForResult(intent, REQUEST_CODE_NEW_NODE);
+    }
+
+    /**
+     * 进入批量操作模式，显示删除和移动入口。
+     */
+    private void startBatchEdit() {
+        if (mNotesListAdapter.getCount() == 0) {
+            Toast.makeText(this, R.string.menu_select_none, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (!mNotesListAdapter.isInChoiceMode()) {
+            if (mNotesListView.startActionMode(mModeCallBack) != null) {
+                mModeCallBack.updateMenu();
+            }
+        }
     }
 
     /**
@@ -918,6 +943,10 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
         switch (item.getItemId()) {
             case R.id.menu_new_folder: {
                 showCreateOrModifyFolderDialog(true);
+                break;
+            }
+            case R.id.menu_batch_edit: {
+                startBatchEdit();
                 break;
             }
             case R.id.menu_export_text: {

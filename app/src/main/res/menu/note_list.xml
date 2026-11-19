@@ -18,6 +18,10 @@
 <menu
     xmlns:android="http://schemas.android.com/apk/res/android">
     <item
+        android:id="@+id/menu_batch_edit"
+        android:title="@string/menu_batch_edit"/>
+
+    <item
         android:id="@+id/menu_new_folder"
         android:title="@string/menu_create_folder"/>
 

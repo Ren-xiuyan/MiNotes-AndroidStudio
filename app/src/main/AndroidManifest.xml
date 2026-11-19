@@ -43,8 +43,7 @@
             android:exported="true"
             android:label="@string/app_name"
             android:launchMode="singleTop"
-            android:theme="@style/NoteTheme"
-            android:uiOptions="splitActionBarWhenNarrow"
+            android:theme="@style/NoteListTheme"
             android:windowSoftInputMode="adjustPan" >
 
             <intent-filter>
