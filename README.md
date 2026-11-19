@@ -196,7 +196,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## 开源协议与致谢
 
-本项目基于 [MiCode/Notes](https://github.com/MiCode/Notes) 修改，遵循 Apache License 2.0，详见 [LICENSE](LICENSE) 与 [NOTICE](NOTICE)。
+本项目基于 [MiCode/Notes](https://github.com/MiCode/Notes) 的 `master` 分支（上游最后同步提交：`81a6602`）修改，遵循 Apache License 2.0，详见 [LICENSE](LICENSE) 与 [NOTICE](NOTICE)。
 
 感谢 MIUI 团队和 MiCode 社区为小米便签开源版做出的贡献。
 
