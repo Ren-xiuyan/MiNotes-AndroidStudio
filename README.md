@@ -104,6 +104,24 @@ Notes/
 2. 等待 Gradle Sync 完成；如未自动开始，点击 **Sync Project with Gradle Files**。
 3. 连接模拟器或真机，点击 **Run 'app'**。
 
+### 克隆仓库
+
+```bash
+git clone https://github.com/Ren-xiuyan/MiNotes-AndroidStudio.git
+cd MiNotes-AndroidStudio
+```
+
+### 日常维护流程
+
+```bash
+git pull origin main                 # 同步最新代码
+git checkout -b fix/issue-xxx        # 新建修复分支
+# 修改并本地验证
+git add .
+git commit -m "fix: 描述修复内容"
+git push origin fix/issue-xxx        # 推送分支，发起 Pull Request
+```
+
 ### 命令行构建
 
 Windows：
