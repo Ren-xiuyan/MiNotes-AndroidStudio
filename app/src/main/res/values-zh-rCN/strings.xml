@@ -85,6 +85,8 @@
     <string name="error_note_empty_for_send_to_desktop">不能将空便签发送到桌面</string>
     <string name="success_sdcard_export">导出成功</string>
     <string name="failed_sdcard_export">导出失败</string>
+    <string name="format_exported_file_uri">已导出到：%1$s</string>
+    <string name="error_export_file">无法写入所选文件，请重试。</string>
     <string name="format_exported_file_location">已将文本文件(%1$s)输出至SD卡(%2$s)目录</string>
     <!-- Sync -->
     <string name="ticker_syncing">同步便签...</string>
