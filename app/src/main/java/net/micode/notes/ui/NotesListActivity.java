@@ -31,10 +31,12 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.provider.OpenableColumns;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -145,6 +147,7 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
     private final static int REQUEST_CODE_OPEN_NODE = 102;
     private final static int REQUEST_CODE_NEW_NODE  = 103;
     private final static int REQUEST_CODE_POST_NOTIFICATIONS = 104;
+    private final static int REQUEST_CODE_EXPORT_TEXT = 105;
 
     /**
      * 初始化便签列表界面，并在首次启动时插入介绍便签。
@@ -183,6 +186,9 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
         if (resultCode == RESULT_OK
                 && (requestCode == REQUEST_CODE_OPEN_NODE || requestCode == REQUEST_CODE_NEW_NODE)) {
             mNotesListAdapter.changeCursor(null);
+        } else if (requestCode == REQUEST_CODE_EXPORT_TEXT && resultCode == RESULT_OK
+                && data != null && data.getData() != null) {
+            exportToUri(data.getData());
         } else {
             super.onActivityResult(requestCode, resultCode, data);
         }
@@ -1004,54 +1010,62 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
     }
 
     /**
-     * 把单个便签导出为文本。
+     * 使用 Storage Access Framework 导出全部便签。
      */
     private void exportNoteToText() {
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("text/plain");
+        intent.putExtra(Intent.EXTRA_TITLE,
+                BackupUtils.getInstance(NotesListActivity.this).getSuggestedFileName());
+        startActivityForResult(intent, REQUEST_CODE_EXPORT_TEXT);
+    }
+
+    /**
+     * 把全部便签写入用户通过 SAF 选择的目标文件。
+     */
+    private void exportToUri(final Uri uri) {
         final BackupUtils backup = BackupUtils.getInstance(NotesListActivity.this);
         new AsyncTask<Void, Void, Integer>() {
-
-            /**
-             * 异步任务：在后台线程执行耗时操作。
-             */
             @Override
             protected Integer doInBackground(Void... unused) {
-                return backup.exportToText();
+                return backup.exportToText(getContentResolver(), uri);
             }
 
-            /**
-             * 异步任务：后台任务完成后在主线程处理结果。
-             */
             @Override
             protected void onPostExecute(Integer result) {
-                if (result == BackupUtils.STATE_SD_CARD_UNMOUONTED) {
-                    AlertDialog.Builder builder = new AlertDialog.Builder(NotesListActivity.this);
-                    builder.setTitle(NotesListActivity.this
-                            .getString(R.string.failed_sdcard_export));
-                    builder.setMessage(NotesListActivity.this
-                            .getString(R.string.error_sdcard_unmounted));
-                    builder.setPositiveButton(android.R.string.ok, null);
-                    builder.show();
-                } else if (result == BackupUtils.STATE_SUCCESS) {
-                    AlertDialog.Builder builder = new AlertDialog.Builder(NotesListActivity.this);
-                    builder.setTitle(NotesListActivity.this
-                            .getString(R.string.success_sdcard_export));
-                    builder.setMessage(NotesListActivity.this.getString(
-                            R.string.format_exported_file_location, backup
-                                    .getExportedTextFileName(), backup.getExportedTextFileDir()));
-                    builder.setPositiveButton(android.R.string.ok, null);
-                    builder.show();
-                } else if (result == BackupUtils.STATE_SYSTEM_ERROR) {
-                    AlertDialog.Builder builder = new AlertDialog.Builder(NotesListActivity.this);
-                    builder.setTitle(NotesListActivity.this
-                            .getString(R.string.failed_sdcard_export));
-                    builder.setMessage(NotesListActivity.this
-                            .getString(R.string.error_sdcard_export));
-                    builder.setPositiveButton(android.R.string.ok, null);
-                    builder.show();
+                AlertDialog.Builder builder = new AlertDialog.Builder(NotesListActivity.this);
+                if (result == BackupUtils.STATE_SUCCESS) {
+                    String name = getDisplayName(uri);
+                    builder.setTitle(R.string.success_sdcard_export);
+                    builder.setMessage(getString(R.string.format_exported_file_uri,
+                            TextUtils.isEmpty(name) ? uri.toString() : name));
+                } else {
+                    builder.setTitle(R.string.failed_sdcard_export);
+                    builder.setMessage(R.string.error_export_file);
                 }
+                builder.setPositiveButton(android.R.string.ok, null);
+                builder.show();
             }
-
         }.execute();
+    }
+
+    /**
+     * 读取 SAF 目标文件的显示名称，用于导出结果提示。
+     */
+    private String getDisplayName(Uri uri) {
+        Cursor cursor = getContentResolver().query(uri,
+                new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null);
+        try {
+            if (cursor != null && cursor.moveToFirst()) {
+                return cursor.getString(0);
+            }
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+        return uri.getLastPathSegment();
     }
 
     /**

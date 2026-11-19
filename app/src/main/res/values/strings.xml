@@ -89,6 +89,8 @@
     <string name="error_note_empty_for_send_to_desktop">Sorry, can not send and empty note to home</string>
     <string name="success_sdcard_export">Export successful</string>
     <string name="failed_sdcard_export">Export fail</string>
+    <string name="format_exported_file_uri">Exported to: %1$s</string>
+    <string name="error_export_file">Unable to write the selected file. Please try again.</string>
     <string name="format_exported_file_location">Export text file (%1$s) to SD (%2$s) directory</string>
     <!-- Sync -->
     <string name="ticker_syncing">Syncing notes...</string>
