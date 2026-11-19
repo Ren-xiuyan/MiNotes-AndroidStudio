@@ -75,4 +75,13 @@
     <style name="NoteListActionBarStyle" parent="@android:style/Widget.Holo.Light.ActionBar.Solid">
         <item name="android:displayOptions">showHome|showTitle</item>
     </style>
+
+    <!-- 编辑页需要可见的 ActionBar，用于承载字体、背景色和清单模式入口。 -->
+    <style name="NoteEditTheme" parent="@android:style/Theme.Holo.Light">
+        <item name="android:actionBarStyle">@style/NoteEditActionBarStyle</item>
+    </style>
+
+    <style name="NoteEditActionBarStyle" parent="@android:style/Widget.Holo.Light.ActionBar.Solid">
+        <item name="android:displayOptions">showHome|showTitle</item>
+    </style>
 </resources>
