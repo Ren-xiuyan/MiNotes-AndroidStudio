@@ -56,6 +56,10 @@ public class WorkingNote {
 
     private long mFolderId;
 
+    private boolean mPinned;
+
+    private String mTags;
+
     private Context mContext;
 
     private static final String TAG = "WorkingNote";
@@ -80,7 +84,9 @@ public class WorkingNote {
             NoteColumns.BG_COLOR_ID,
             NoteColumns.WIDGET_ID,
             NoteColumns.WIDGET_TYPE,
-            NoteColumns.MODIFIED_DATE
+            NoteColumns.MODIFIED_DATE,
+            NoteColumns.PINNED,
+            NoteColumns.TAGS
     };
 
     private static final int DATA_ID_COLUMN = 0;
@@ -103,6 +109,10 @@ public class WorkingNote {
 
     private static final int NOTE_MODIFIED_DATE_COLUMN = 5;
 
+    private static final int NOTE_PINNED_COLUMN = 6;
+
+    private static final int NOTE_TAGS_COLUMN = 7;
+
     /**
      * 构造 WorkingNote 对象，并初始化内部状态。
      */
@@ -116,6 +126,10 @@ public class WorkingNote {
         mIsDeleted = false;
         mMode = 0;
         mWidgetType = Notes.TYPE_WIDGET_INVALIDE;
+        mWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID;
+        mContent = "";
+        mTags = "";
+        mPinned = false;
     }
 
     /**
@@ -139,15 +153,23 @@ public class WorkingNote {
                 null, null);
 
         if (cursor != null) {
-            if (cursor.moveToFirst()) {
-                mFolderId = cursor.getLong(NOTE_PARENT_ID_COLUMN);
-                mBgColorId = cursor.getInt(NOTE_BG_COLOR_ID_COLUMN);
-                mWidgetId = cursor.getInt(NOTE_WIDGET_ID_COLUMN);
-                mWidgetType = cursor.getInt(NOTE_WIDGET_TYPE_COLUMN);
-                mAlertDate = cursor.getLong(NOTE_ALERTED_DATE_COLUMN);
-                mModifiedDate = cursor.getLong(NOTE_MODIFIED_DATE_COLUMN);
+            try {
+                if (cursor.moveToFirst()) {
+                    mFolderId = cursor.getLong(NOTE_PARENT_ID_COLUMN);
+                    mBgColorId = cursor.getInt(NOTE_BG_COLOR_ID_COLUMN);
+                    mWidgetId = cursor.getInt(NOTE_WIDGET_ID_COLUMN);
+                    mWidgetType = cursor.getInt(NOTE_WIDGET_TYPE_COLUMN);
+                    mAlertDate = cursor.getLong(NOTE_ALERTED_DATE_COLUMN);
+                    mModifiedDate = cursor.getLong(NOTE_MODIFIED_DATE_COLUMN);
+                    mPinned = cursor.getInt(NOTE_PINNED_COLUMN) > 0;
+                    String tags = cursor.getString(NOTE_TAGS_COLUMN);
+                    mTags = tags == null ? "" : tags;
+                } else {
+                    throw new IllegalArgumentException("Unable to find note with id " + mNoteId);
+                }
+            } finally {
+                cursor.close();
             }
-            cursor.close();
         } else {
             Log.e(TAG, "No note with id:" + mNoteId);
             throw new IllegalArgumentException("Unable to find note with id " + mNoteId);
@@ -165,24 +187,28 @@ public class WorkingNote {
                 }, null);
 
         if (cursor != null) {
-            if (cursor.moveToFirst()) {
-                do {
-                    String type = cursor.getString(DATA_MIME_TYPE_COLUMN);
-                    if (DataConstants.NOTE.equals(type)) {
-                        mContent = cursor.getString(DATA_CONTENT_COLUMN);
-                        mMode = cursor.getInt(DATA_MODE_COLUMN);
-                        mNote.setTextDataId(cursor.getLong(DATA_ID_COLUMN));
-                    } else if (DataConstants.CALL_NOTE.equals(type)) {
-                        mNote.setCallDataId(cursor.getLong(DATA_ID_COLUMN));
-                    } else {
-                        Log.d(TAG, "Wrong note type with type:" + type);
-                    }
-                } while (cursor.moveToNext());
+            try {
+                if (cursor.moveToFirst()) {
+                    do {
+                        String type = cursor.getString(DATA_MIME_TYPE_COLUMN);
+                        if (DataConstants.NOTE.equals(type)) {
+                            String content = cursor.getString(DATA_CONTENT_COLUMN);
+                            mContent = content == null ? "" : content;
+                            mMode = cursor.getInt(DATA_MODE_COLUMN);
+                            mNote.setTextDataId(cursor.getLong(DATA_ID_COLUMN));
+                        } else if (DataConstants.CALL_NOTE.equals(type)) {
+                            mNote.setCallDataId(cursor.getLong(DATA_ID_COLUMN));
+                        } else {
+                            Log.d(TAG, "Wrong note type with type:" + type);
+                        }
+                    } while (cursor.moveToNext());
+                }
+            } finally {
+                cursor.close();
             }
-            cursor.close();
         } else {
-            Log.e(TAG, "No data with id:" + mNoteId);
-            throw new IllegalArgumentException("Unable to find note's data with id " + mNoteId);
+            // 新便签或数据行被并发删除时不应崩溃，保持空内容即可。
+            Log.w(TAG, "No data with id:" + mNoteId);
         }
     }
 
@@ -202,7 +228,13 @@ public class WorkingNote {
      * 从数据库加载指定便签，并初始化编辑所需的数据和状态。
      */
     public static WorkingNote load(Context context, long id) {
-        return new WorkingNote(context, id, 0);
+        try {
+            return new WorkingNote(context, id, 0);
+        } catch (IllegalArgumentException e) {
+            // 便签可能在进入编辑页前被删除，返回 null 由调用方按“便签不存在”处理。
+            Log.e(TAG, "Load note failed with id:" + id, e);
+            return null;
+        }
     }
 
     /**
@@ -245,7 +277,8 @@ public class WorkingNote {
      * 判断当前对象是否值得保存。
      */
     private boolean isWorthSaving() {
-        if (mIsDeleted || (!existInDatabase() && TextUtils.isEmpty(mContent))
+        if (mIsDeleted
+                || (!existInDatabase() && TextUtils.isEmpty(mContent) && TextUtils.isEmpty(mTags))
                 || (existInDatabase() && !mNote.isLocalModified())) {
             return false;
         } else {
@@ -308,6 +341,43 @@ public class WorkingNote {
             mMode = mode;
             mNote.setTextData(TextNote.MODE, String.valueOf(mMode));
         }
+    }
+
+    /**
+     * 设置便签置顶状态。
+     */
+    public void setPinned(boolean pinned) {
+        if (mPinned != pinned) {
+            mPinned = pinned;
+            mNote.setNoteValue(NoteColumns.PINNED, pinned ? "1" : "0");
+            mModifiedDate = System.currentTimeMillis();
+        }
+    }
+
+    /**
+     * 判断便签是否置顶。
+     */
+    public boolean isPinned() {
+        return mPinned;
+    }
+
+    /**
+     * 设置便签标签（已规范化的英文逗号分隔字符串）。
+     */
+    public void setTags(String tags) {
+        String normalized = tags == null ? "" : tags;
+        if (!TextUtils.equals(mTags, normalized)) {
+            mTags = normalized;
+            mNote.setNoteValue(NoteColumns.TAGS, mTags);
+            mModifiedDate = System.currentTimeMillis();
+        }
+    }
+
+    /**
+     * 获取便签标签（英文逗号分隔）。
+     */
+    public String getTags() {
+        return mTags == null ? "" : mTags;
     }
 
     /**

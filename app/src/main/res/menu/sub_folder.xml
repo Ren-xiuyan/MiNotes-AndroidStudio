@@ -23,6 +23,35 @@
         android:title="@string/menu_batch_edit"/>
 
     <item
+        android:id="@+id/menu_sort"
+        android:title="@string/menu_sort">
+        <menu>
+            <group android:checkableBehavior="single">
+                <item
+                    android:id="@+id/menu_sort_modified"
+                    android:title="@string/menu_sort_modified" />
+                <item
+                    android:id="@+id/menu_sort_created"
+                    android:title="@string/menu_sort_created" />
+                <item
+                    android:id="@+id/menu_sort_title"
+                    android:title="@string/menu_sort_title" />
+            </group>
+        </menu>
+    </item>
+
+    <item
+        android:id="@+id/menu_filter_tags"
+        android:title="@string/menu_filter_tags">
+        <menu>
+            <item
+                android:id="@+id/menu_no_tags"
+                android:enabled="false"
+                android:title="@string/menu_no_tags" />
+        </menu>
+    </item>
+
+    <item
         android:id="@+id/menu_new_note"
         android:title="@string/notelist_menu_new"/>
 </menu>

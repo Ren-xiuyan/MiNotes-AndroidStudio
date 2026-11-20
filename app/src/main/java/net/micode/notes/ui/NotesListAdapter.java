@@ -83,6 +83,10 @@ public class NotesListAdapter extends CursorAdapter {
      * 设置指定列表项的选中状态。
      */
     public void setCheckedItem(final int position, final boolean checked) {
+        if (position < 0 || position >= getCount()) {
+            Log.w(TAG, "Invalid checked position:" + position);
+            return;
+        }
         mSelectedIndex.put(position, checked);
         notifyDataSetChanged();
     }
@@ -108,10 +112,10 @@ public class NotesListAdapter extends CursorAdapter {
      */
     public void selectAll(boolean checked) {
         Cursor cursor = getCursor();
-        for (int i = 0; /**
-  * 适配器回调：返回数据项数量。
-  */
- i < getCount(); i++) {
+        if (cursor == null) {
+            return;
+        }
+        for (int i = 0; i < getCount(); i++) {
             if (cursor.moveToPosition(i)) {
                 if (NoteItemData.getNoteType(cursor) == Notes.TYPE_NOTE) {
                     setCheckedItem(i, checked);
@@ -126,11 +130,12 @@ public class NotesListAdapter extends CursorAdapter {
     public HashSet<Long> getSelectedItemIds() {
         HashSet<Long> itemSet = new HashSet<Long>();
         for (Integer position : mSelectedIndex.keySet()) {
-            if (mSelectedIndex.get(position) == true) {
-                Long id = getItemId(position);
+            Boolean selected = mSelectedIndex.get(position);
+            if (selected != null && selected && position >= 0 && position < getCount()) {
+                long id = getItemId(position);
                 if (id == Notes.ID_ROOT_FOLDER) {
                     Log.d(TAG, "Wrong item id, should not happen");
-                } else {
+                } else if (id > 0) {
                     itemSet.add(id);
                 }
             }
@@ -145,15 +150,15 @@ public class NotesListAdapter extends CursorAdapter {
     public HashSet<AppWidgetAttribute> getSelectedWidget() {
         HashSet<AppWidgetAttribute> itemSet = new HashSet<AppWidgetAttribute>();
         for (Integer position : mSelectedIndex.keySet()) {
-            if (mSelectedIndex.get(position) == true) {
-                Cursor c = (Cursor) getItem(position);
-                if (c != null) {
+            Boolean selected = mSelectedIndex.get(position);
+            if (selected != null && selected && position >= 0 && position < getCount()) {
+                Object item = getItem(position);
+                if (item instanceof Cursor) {
                     AppWidgetAttribute widget = new AppWidgetAttribute();
-                    NoteItemData item = new NoteItemData(mContext, c);
-                    widget.widgetId = item.getWidgetId();
-                    widget.widgetType = item.getWidgetType();
+                    NoteItemData itemData = new NoteItemData(mContext, (Cursor) item);
+                    widget.widgetId = itemData.getWidgetId();
+                    widget.widgetType = itemData.getWidgetType();
                     itemSet.add(widget);
-
                 } else {
                     Log.e(TAG, "Invalid cursor");
                     return null;
@@ -161,6 +166,27 @@ public class NotesListAdapter extends CursorAdapter {
             }
         }
         return itemSet;
+    }
+
+    /**
+     * 判断当前选中的便签是否全部已置顶。
+     *
+     * <p>没有任何选中项时返回 false，调用方据此决定显示“置顶”还是“取消置顶”。</p>
+     */
+    public boolean areAllSelectedPinned() {
+        int selectedCount = 0;
+        for (Integer position : mSelectedIndex.keySet()) {
+            Boolean selected = mSelectedIndex.get(position);
+            if (selected == null || !selected || position < 0 || position >= getCount()) {
+                continue;
+            }
+            Object item = getItem(position);
+            if (item instanceof Cursor
+                    && new NoteItemData(mContext, (Cursor) item).isPinned()) {
+                selectedCount++;
+            }
+        }
+        return selectedCount > 0 && selectedCount == getSelectedCount();
     }
 
     /**
@@ -174,7 +200,7 @@ public class NotesListAdapter extends CursorAdapter {
         Iterator<Boolean> iter = values.iterator();
         int count = 0;
         while (iter.hasNext()) {
-            if (true == iter.next()) {
+            if (Boolean.TRUE.equals(iter.next())) {
                 count++;
             }
         }
@@ -196,7 +222,7 @@ public class NotesListAdapter extends CursorAdapter {
         if (null == mSelectedIndex.get(position)) {
             return false;
         }
-        return mSelectedIndex.get(position);
+        return Boolean.TRUE.equals(mSelectedIndex.get(position));
     }
 
     /**
@@ -222,18 +248,14 @@ public class NotesListAdapter extends CursorAdapter {
      */
     private void calcNotesCount() {
         mNotesCount = 0;
-        for (int i = 0; /**
-  * 适配器回调：返回数据项数量。
-  */
- i < getCount(); i++) {
-            Cursor c = (Cursor) getItem(i);
-            if (c != null) {
-                if (NoteItemData.getNoteType(c) == Notes.TYPE_NOTE) {
-                    mNotesCount++;
-                }
-            } else {
-                Log.e(TAG, "Invalid cursor");
-                return;
+        Cursor cursor = getCursor();
+        if (cursor == null) {
+            return;
+        }
+        for (int i = 0; i < getCount(); i++) {
+            if (cursor.moveToPosition(i)
+                    && NoteItemData.getNoteType(cursor) == Notes.TYPE_NOTE) {
+                mNotesCount++;
             }
         }
     }

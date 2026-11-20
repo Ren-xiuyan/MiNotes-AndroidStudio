@@ -42,6 +42,8 @@ public class NoteItemData {
         NoteColumns.TYPE,
         NoteColumns.WIDGET_ID,
         NoteColumns.WIDGET_TYPE,
+        NoteColumns.PINNED,
+        NoteColumns.TAGS,
     };
 
     private static final int ID_COLUMN                    = 0;
@@ -56,6 +58,8 @@ public class NoteItemData {
     private static final int TYPE_COLUMN                  = 9;
     private static final int WIDGET_ID_COLUMN             = 10;
     private static final int WIDGET_TYPE_COLUMN           = 11;
+    private static final int PINNED_COLUMN                = 12;
+    private static final int TAGS_COLUMN                  = 13;
 
     private long mId;
     private long mAlertDate;
@@ -69,6 +73,8 @@ public class NoteItemData {
     private int mType;
     private int mWidgetId;
     private int mWidgetType;
+    private boolean mPinned;
+    private String mTags;
     private String mName;
     private String mPhoneNumber;
 
@@ -90,16 +96,22 @@ public class NoteItemData {
         mModifiedDate = cursor.getLong(MODIFIED_DATE_COLUMN);
         mNotesCount = cursor.getInt(NOTES_COUNT_COLUMN);
         mParentId = cursor.getLong(PARENT_ID_COLUMN);
-        mSnippet = cursor.getString(SNIPPET_COLUMN);
+        // snippet 列允许为空（例如仅有通话数据的便签），直接 replace 会触发空指针。
+        String snippet = cursor.getString(SNIPPET_COLUMN);
+        mSnippet = snippet == null ? "" : snippet;
         mSnippet = mSnippet.replace(NoteEditActivity.TAG_CHECKED, "").replace(
                 NoteEditActivity.TAG_UNCHECKED, "");
         mType = cursor.getInt(TYPE_COLUMN);
         mWidgetId = cursor.getInt(WIDGET_ID_COLUMN);
         mWidgetType = cursor.getInt(WIDGET_TYPE_COLUMN);
+        mPinned = cursor.getInt(PINNED_COLUMN) > 0;
+        String tags = cursor.getString(TAGS_COLUMN);
+        mTags = tags == null ? "" : tags;
 
         mPhoneNumber = "";
         if (mParentId == Notes.ID_CALL_RECORD_FOLDER) {
-            mPhoneNumber = DataUtils.getCallNumberByNoteId(context.getContentResolver(), mId);
+            String phoneNumber = DataUtils.getCallNumberByNoteId(context.getContentResolver(), mId);
+            mPhoneNumber = phoneNumber == null ? "" : phoneNumber;
             if (!TextUtils.isEmpty(mPhoneNumber)) {
                 mName = Contact.getContact(context, mPhoneNumber);
                 if (mName == null) {
@@ -118,26 +130,27 @@ public class NoteItemData {
      * 检查并计算列表项的位置状态。
      */
     private void checkPostion(Cursor cursor) {
-        mIsLastItem = cursor.isLast() ? true : false;
-        mIsFirstItem = cursor.isFirst() ? true : false;
+        mIsLastItem = cursor.isLast();
+        mIsFirstItem = cursor.isFirst();
         mIsOnlyOneItem = (cursor.getCount() == 1);
         mIsMultiNotesFollowingFolder = false;
         mIsOneNoteFollowingFolder = false;
 
         if (mType == Notes.TYPE_NOTE && !mIsFirstItem) {
             int position = cursor.getPosition();
-            if (cursor.moveToPrevious()) {
-                if (cursor.getInt(TYPE_COLUMN) == Notes.TYPE_FOLDER
-                        || cursor.getInt(TYPE_COLUMN) == Notes.TYPE_SYSTEM) {
+            // 只处理前一项是文件夹/系统文件夹的情况；使用 moveToPosition 而不是
+            // moveToPrevious，失败时不会抛出异常，也不会破坏游标位置。
+            if (position > 0 && cursor.moveToPosition(position - 1)) {
+                int previousType = cursor.getInt(TYPE_COLUMN);
+                if (previousType == Notes.TYPE_FOLDER || previousType == Notes.TYPE_SYSTEM) {
                     if (cursor.getCount() > (position + 1)) {
                         mIsMultiNotesFollowingFolder = true;
                     } else {
                         mIsOneNoteFollowingFolder = true;
                     }
                 }
-                if (!cursor.moveToNext()) {
-                    throw new IllegalStateException("cursor move to previous but can't move back");
-                }
+                // 恢复游标位置，CursorAdapter 依赖当前位置绑定视图。
+                cursor.moveToPosition(position);
             }
         }
     }
@@ -262,6 +275,20 @@ public class NoteItemData {
     }
 
     /**
+     * 判断便签是否置顶。
+     */
+    public boolean isPinned() {
+        return mPinned;
+    }
+
+    /**
+     * 获取标签列表（英文逗号分隔）。
+     */
+    public String getTags() {
+        return mTags;
+    }
+
+    /**
      * 判断是否有提醒。
      */
     public boolean hasAlert() {
@@ -272,6 +299,9 @@ public class NoteItemData {
      * 获取便签类型。
      */
     public static int getNoteType(Cursor cursor) {
+        if (cursor == null) {
+            return Notes.TYPE_NOTE;
+        }
         return cursor.getInt(TYPE_COLUMN);
     }
 }

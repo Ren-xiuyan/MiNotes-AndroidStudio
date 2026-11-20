@@ -17,6 +17,7 @@
 package net.micode.notes.ui;
 
 import android.content.Context;
+import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.view.View;
 import android.widget.CheckBox;
@@ -34,8 +35,10 @@ import net.micode.notes.tool.ResourceParser.NoteItemBgResources;
  */
 public class NotesListItem extends LinearLayout {
     private ImageView mAlert;
+    private ImageView mPin;
     private TextView mTitle;
     private TextView mTime;
+    private TextView mTags;
     private TextView mCallName;
     private NoteItemData mItemData;
     private CheckBox mCheckBox;
@@ -47,8 +50,10 @@ public class NotesListItem extends LinearLayout {
         super(context);
         inflate(context, R.layout.note_item, this);
         mAlert = (ImageView) findViewById(R.id.iv_alert_icon);
+        mPin = (ImageView) findViewById(R.id.iv_pin_icon);
         mTitle = (TextView) findViewById(R.id.tv_title);
         mTime = (TextView) findViewById(R.id.tv_time);
+        mTags = (TextView) findViewById(R.id.tv_tags);
         mCallName = (TextView) findViewById(R.id.tv_name);
         mCheckBox = (CheckBox) findViewById(android.R.id.checkbox);
     }
@@ -57,6 +62,10 @@ public class NotesListItem extends LinearLayout {
      * 根据便签数据设置标题、摘要、时间和背景。
      */
     public void bind(Context context, NoteItemData data, boolean choiceMode, boolean checked) {
+        if (data == null) {
+            return;
+        }
+
         // 多选模式下显示复选框，普通模式下隐藏。
         if (choiceMode && data.getType() == Notes.TYPE_NOTE) {
             mCheckBox.setVisibility(View.VISIBLE);
@@ -66,6 +75,13 @@ public class NotesListItem extends LinearLayout {
         }
 
         mItemData = data;
+        // 置顶标记只对普通便签展示，文件夹和通话记录保持原有样式。
+        if (data.getType() == Notes.TYPE_NOTE && data.isPinned()) {
+            mPin.setVisibility(View.VISIBLE);
+        } else {
+            mPin.setVisibility(View.GONE);
+        }
+
         // 通话记录文件夹、通话便签和普通便签使用不同的展示样式。
         if (data.getId() == Notes.ID_CALL_RECORD_FOLDER) {
             mCallName.setVisibility(View.GONE);
@@ -104,6 +120,21 @@ public class NotesListItem extends LinearLayout {
                 }
             }
         }
+
+        // 标签行只在普通便签存在标签时展示，文件夹和通话便签保持单行高度。
+        if (data.getType() == Notes.TYPE_NOTE
+                && data.getParentId() != Notes.ID_CALL_RECORD_FOLDER) {
+            String tags = DataUtils.formatTagsForDisplay(data.getTags());
+            if (TextUtils.isEmpty(tags)) {
+                mTags.setVisibility(View.GONE);
+            } else {
+                mTags.setText(tags);
+                mTags.setVisibility(View.VISIBLE);
+            }
+        } else {
+            mTags.setVisibility(View.GONE);
+        }
+
         mTime.setText(DateUtils.getRelativeTimeSpanString(data.getModifiedDate()));
 
         setBackground(data);

@@ -33,6 +33,8 @@ import net.micode.notes.data.Notes.DataColumns;
 import net.micode.notes.data.Notes.NoteColumns;
 import net.micode.notes.data.NotesDatabaseHelper.TABLE;
 
+import java.util.ArrayList;
+
 /**
  * 便签内容提供器。统一处理便签表、数据表的增删改查，并对外提供搜索建议数据。
  */
@@ -70,9 +72,9 @@ public class NotesProvider extends ContentProvider {
         + "'" + Intent.ACTION_VIEW + "' AS " + SearchManager.SUGGEST_COLUMN_INTENT_ACTION + ","
         + "'" + Notes.TextNote.CONTENT_TYPE + "' AS " + SearchManager.SUGGEST_COLUMN_INTENT_DATA;
 
-    private static String NOTES_SNIPPET_SEARCH_QUERY = "SELECT " + NOTES_SEARCH_PROJECTION
+    private static final String NOTES_SNIPPET_SEARCH_QUERY = "SELECT " + NOTES_SEARCH_PROJECTION
         + " FROM " + TABLE.NOTE
-        + " WHERE " + NoteColumns.SNIPPET + " LIKE ?"
+        + " WHERE " + NoteColumns.SNIPPET + " LIKE ? ESCAPE '\\'"
         + " AND " + NoteColumns.PARENT_ID + "<>" + Notes.ID_TRASH_FOLER
         + " AND " + NoteColumns.TYPE + "=" + Notes.TYPE_NOTE;
 
@@ -137,7 +139,7 @@ public class NotesProvider extends ContentProvider {
                 }
 
                 try {
-                    searchString = String.format("%%%s%%", searchString);
+                    searchString = String.format("%%%s%%", escapeLike(searchString));
                     c = db.rawQuery(NOTES_SNIPPET_SEARCH_QUERY,
                             new String[] { searchString });
                 } catch (IllegalStateException ex) {
@@ -159,6 +161,9 @@ public class NotesProvider extends ContentProvider {
      */
     @Override
     public Uri insert(Uri uri, ContentValues values) {
+        if (values == null) {
+            throw new IllegalArgumentException("ContentValues can not be null for " + uri);
+        }
         SQLiteDatabase db = mHelper.getWritableDatabase();
         long dataId = 0, noteId = 0, insertedId = 0;
         // 根据 URI 判断写入便签主表还是数据表。
@@ -168,7 +173,8 @@ public class NotesProvider extends ContentProvider {
                 break;
             case URI_DATA:
                 if (values.containsKey(DataColumns.NOTE_ID)) {
-                    noteId = values.getAsLong(DataColumns.NOTE_ID);
+                    Long value = values.getAsLong(DataColumns.NOTE_ID);
+                    noteId = value == null ? 0 : value;
                 } else {
                     Log.d(TAG, "Wrong data format without note id:" + values.toString());
                 }
@@ -176,6 +182,12 @@ public class NotesProvider extends ContentProvider {
                 break;
             default:
                 throw new IllegalArgumentException("Unknown URI " + uri);
+        }
+
+        // 插入失败时返回 null，而不是返回带 -1 的非法 URI 让调用方继续使用。
+        if (insertedId <= 0) {
+            Log.e(TAG, "Insert failed for uri:" + uri);
+            return null;
         }
 
         // 主表记录写入成功后，通知便签 URI 的观察者。
@@ -204,13 +216,24 @@ public class NotesProvider extends ContentProvider {
         // 根据 URI 判断删除整张表还是单条记录。
         switch (mMatcher.match(uri)) {
             case URI_NOTE:
-                selection = "(" + selection + ") AND " + NoteColumns.ID + ">0 ";
+                // selection 可能为 null（删除整表），直接拼接会生成 "(null)" 导致 SQL 错误。
+                if (TextUtils.isEmpty(selection)) {
+                    selection = NoteColumns.ID + ">0";
+                } else {
+                    selection = "(" + selection + ") AND " + NoteColumns.ID + ">0";
+                }
                 count = db.delete(TABLE.NOTE, selection, selectionArgs);
                 break;
             case URI_NOTE_ITEM:
                 id = uri.getPathSegments().get(1);
 
-                long noteId = Long.valueOf(id);
+                long noteId;
+                try {
+                    noteId = Long.parseLong(id);
+                } catch (NumberFormatException e) {
+                    Log.e(TAG, "Invalid note id:" + id);
+                    break;
+                }
                 if (noteId <= 0) {
                     break;
                 }
@@ -257,7 +280,14 @@ public class NotesProvider extends ContentProvider {
                 break;
             case URI_NOTE_ITEM:
                 id = uri.getPathSegments().get(1);
-                increaseNoteVersion(Long.valueOf(id), selection, selectionArgs);
+                long updateNoteId;
+                try {
+                    updateNoteId = Long.parseLong(id);
+                } catch (NumberFormatException e) {
+                    Log.e(TAG, "Invalid note id:" + id);
+                    break;
+                }
+                increaseNoteVersion(updateNoteId, selection, selectionArgs);
                 count = db.update(TABLE.NOTE, values, NoteColumns.ID + "=" + id
                         + parseSelection(selection), selectionArgs);
                 break;
@@ -301,23 +331,54 @@ public class NotesProvider extends ContentProvider {
         sql.append(TABLE.NOTE);
         sql.append(" SET ");
         sql.append(NoteColumns.VERSION);
-        sql.append("=" + NoteColumns.VERSION + "+1 ");
+        sql.append("=" + NoteColumns.VERSION + "+1");
 
-        if (id > 0 || !TextUtils.isEmpty(selection)) {
-            sql.append(" WHERE ");
-        }
+        // 用绑定参数拼接 WHERE，避免把 selectionArgs 直接拼进 SQL 造成引号/转义问题。
+        StringBuilder where = new StringBuilder();
+        ArrayList<Object> bindArgs = new ArrayList<Object>();
         if (id > 0) {
-            sql.append(NoteColumns.ID + "=" + String.valueOf(id));
+            where.append(NoteColumns.ID).append("=?");
+            bindArgs.add(String.valueOf(id));
         }
         if (!TextUtils.isEmpty(selection)) {
-            String selectString = id > 0 ? parseSelection(selection) : selection;
-            for (String args : selectionArgs) {
-                selectString = selectString.replaceFirst("\\?", args);
+            if (where.length() > 0) {
+                where.append(" AND ");
             }
-            sql.append(selectString);
+            where.append("(").append(selection).append(")");
+            if (selectionArgs != null) {
+                for (String arg : selectionArgs) {
+                    bindArgs.add(arg);
+                }
+            }
+        }
+        if (where.length() > 0) {
+            sql.append(" WHERE ").append(where);
         }
 
-        mHelper.getWritableDatabase().execSQL(sql.toString());
+        SQLiteDatabase db = mHelper.getWritableDatabase();
+        if (bindArgs.isEmpty()) {
+            db.execSQL(sql.toString());
+        } else {
+            db.execSQL(sql.toString(), bindArgs.toArray());
+        }
+    }
+
+    /**
+     * 转义 LIKE 通配符，避免搜索词中的 %、_、\ 被当作模式字符。
+     */
+    private String escapeLike(String value) {
+        if (value == null) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder(value.length() + 8);
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c == '\\' || c == '%' || c == '_') {
+                builder.append('\\');
+            }
+            builder.append(c);
+        }
+        return builder.toString();
     }
 
     /**

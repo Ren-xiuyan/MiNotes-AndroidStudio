@@ -94,6 +94,12 @@ public class Notes {
         public static final String GTASK_ID = "gtask_id";
 
         public static final String VERSION = "version";
+
+        /** 是否置顶：1 表示置顶，0 表示普通便签。 */
+        public static final String PINNED = "pinned";
+
+        /** 标签列表：以英文逗号分隔，例如 "工作,重要"。 */
+        public static final String TAGS = "tags";
     }
 
     /**

@@ -23,6 +23,14 @@
         android:title="@string/notelist_menu_new"/>
 
     <item
+        android:id="@+id/menu_pin"
+        android:title="@string/menu_pin" />
+
+    <item
+        android:id="@+id/menu_edit_tags"
+        android:title="@string/menu_edit_tags" />
+
+    <item
         android:id="@+id/menu_delete"
         android:title="@string/menu_delete"/>
 
