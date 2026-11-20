@@ -210,7 +210,14 @@ public class NoteEditActivity extends Activity implements OnClickListener,
             mUserQuery = "";
 
             if (intent.hasExtra(SearchManager.EXTRA_DATA_KEY)) {
-                noteId = Long.parseLong(intent.getStringExtra(SearchManager.EXTRA_DATA_KEY));
+                String dataKey = intent.getStringExtra(SearchManager.EXTRA_DATA_KEY);
+                if (!TextUtils.isEmpty(dataKey)) {
+                    try {
+                        noteId = Long.parseLong(dataKey);
+                    } catch (NumberFormatException e) {
+                        Log.e(TAG, "Invalid search data key:" + dataKey);
+                    }
+                }
                 mUserQuery = intent.getStringExtra(SearchManager.USER_QUERY);
             }
 
@@ -301,7 +308,11 @@ public class NoteEditActivity extends Activity implements OnClickListener,
             mNoteEditor.setSelection(mNoteEditor.getText().length());
         }
         for (Integer id : sBgSelectorSelectionMap.keySet()) {
-            findViewById(sBgSelectorSelectionMap.get(id)).setVisibility(View.GONE);
+            Integer selectionId = sBgSelectorSelectionMap.get(id);
+            View selection = selectionId == null ? null : findViewById(selectionId);
+            if (selection != null) {
+                selection.setVisibility(View.GONE);
+            }
         }
         mHeadViewPanel.setBackgroundResource(mWorkingNote.getTitleBgResId());
         mNoteEditorPanel.setBackgroundResource(mWorkingNote.getBgColorResId());
@@ -350,6 +361,9 @@ public class NoteEditActivity extends Activity implements OnClickListener,
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
 
+        if (mWorkingNote == null) {
+            return;
+        }
         if (!mWorkingNote.existInDatabase()) {
             saveNote();
         }
@@ -362,13 +376,15 @@ public class NoteEditActivity extends Activity implements OnClickListener,
      */
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
-        if (mNoteBgColorSelector.getVisibility() == View.VISIBLE
+        if (mNoteBgColorSelector != null
+                && mNoteBgColorSelector.getVisibility() == View.VISIBLE
                 && !inRangeOfView(mNoteBgColorSelector, ev)) {
             mNoteBgColorSelector.setVisibility(View.GONE);
             return true;
         }
 
-        if (mFontSizeSelector.getVisibility() == View.VISIBLE
+        if (mFontSizeSelector != null
+                && mFontSizeSelector.getVisibility() == View.VISIBLE
                 && !inRangeOfView(mFontSizeSelector, ev)) {
             mFontSizeSelector.setVisibility(View.GONE);
             return true;
@@ -432,6 +448,9 @@ public class NoteEditActivity extends Activity implements OnClickListener,
     @Override
     protected void onPause() {
         super.onPause();
+        if (mWorkingNote == null) {
+            return;
+        }
         if(saveNote()) {
             Log.d(TAG, "Note data was saved with length:" + mWorkingNote.getContent().length());
         }
@@ -468,23 +487,54 @@ public class NoteEditActivity extends Activity implements OnClickListener,
         if (id == R.id.btn_set_bg_color) {
             showBackgroundColorSelector();
         } else if (sBgSelectorBtnsMap.containsKey(id)) {
-            findViewById(sBgSelectorSelectionMap.get(mWorkingNote.getBgColorId())).setVisibility(
-                    View.GONE);
-            mWorkingNote.setBgColorId(sBgSelectorBtnsMap.get(id));
+            setBgSelectionVisible(View.GONE);
+            Integer colorId = sBgSelectorBtnsMap.get(id);
+            if (colorId != null) {
+                mWorkingNote.setBgColorId(colorId);
+            }
             mNoteBgColorSelector.setVisibility(View.GONE);
         } else if (sFontSizeBtnsMap.containsKey(id)) {
-            findViewById(sFontSelectorSelectionMap.get(mFontSizeId)).setVisibility(View.GONE);
-            mFontSizeId = sFontSizeBtnsMap.get(id);
-            mSharedPrefs.edit().putInt(PREFERENCE_FONT_SIZE, mFontSizeId).commit();
-            findViewById(sFontSelectorSelectionMap.get(mFontSizeId)).setVisibility(View.VISIBLE);
-            if (mWorkingNote.getCheckListMode() == TextNote.MODE_CHECK_LIST) {
-                getWorkingText();
-                switchToListMode(mWorkingNote.getContent());
-            } else {
-                mNoteEditor.setTextAppearance(this,
-                        TextAppearanceResources.getTexAppearanceResource(mFontSizeId));
+            setFontSelectionVisible(mFontSizeId, View.GONE);
+            Integer fontSize = sFontSizeBtnsMap.get(id);
+            if (fontSize != null) {
+                mFontSizeId = fontSize;
+                mSharedPrefs.edit().putInt(PREFERENCE_FONT_SIZE, mFontSizeId).commit();
+                setFontSelectionVisible(mFontSizeId, View.VISIBLE);
+                if (mWorkingNote.getCheckListMode() == TextNote.MODE_CHECK_LIST) {
+                    getWorkingText();
+                    switchToListMode(mWorkingNote.getContent());
+                } else {
+                    mNoteEditor.setTextAppearance(this,
+                            TextAppearanceResources.getTexAppearanceResource(mFontSizeId));
+                }
             }
             mFontSizeSelector.setVisibility(View.GONE);
+        }
+    }
+
+    /**
+     * 显示或隐藏当前背景色对应的选中标记；颜色 ID 异常时直接忽略。
+     */
+    private void setBgSelectionVisible(int visibility) {
+        Integer selectionId = sBgSelectorSelectionMap.get(mWorkingNote.getBgColorId());
+        if (selectionId != null) {
+            View view = findViewById(selectionId);
+            if (view != null) {
+                view.setVisibility(visibility);
+            }
+        }
+    }
+
+    /**
+     * 显示或隐藏指定字体大小对应的选中标记；字体 ID 异常时直接忽略。
+     */
+    private void setFontSelectionVisible(int fontId, int visibility) {
+        Integer selectionId = sFontSelectorSelectionMap.get(fontId);
+        if (selectionId != null) {
+            View view = findViewById(selectionId);
+            if (view != null) {
+                view.setVisibility(visibility);
+            }
         }
     }
 
@@ -505,10 +555,11 @@ public class NoteEditActivity extends Activity implements OnClickListener,
      * 清除背景色、字体等设置面板的选中状态。
      */
     private boolean clearSettingState() {
-        if (mNoteBgColorSelector.getVisibility() == View.VISIBLE) {
+        if (mNoteBgColorSelector != null && mNoteBgColorSelector.getVisibility() == View.VISIBLE) {
             mNoteBgColorSelector.setVisibility(View.GONE);
             return true;
-        } else if (mFontSizeSelector.getVisibility() == View.VISIBLE) {
+        } else if (mFontSizeSelector != null
+                && mFontSizeSelector.getVisibility() == View.VISIBLE) {
             mFontSizeSelector.setVisibility(View.GONE);
             return true;
         }
@@ -520,16 +571,14 @@ public class NoteEditActivity extends Activity implements OnClickListener,
      */
     private void showBackgroundColorSelector() {
         mNoteBgColorSelector.setVisibility(View.VISIBLE);
-        findViewById(sBgSelectorSelectionMap.get(mWorkingNote.getBgColorId())).setVisibility(
-                View.VISIBLE);
+        setBgSelectionVisible(View.VISIBLE);
     }
 
     /**
      * 背景颜色变化回调：刷新便签背景。
      */
     public void onBackgroundColorChanged() {
-        findViewById(sBgSelectorSelectionMap.get(mWorkingNote.getBgColorId())).setVisibility(
-                View.VISIBLE);
+        setBgSelectionVisible(View.VISIBLE);
         mNoteEditorPanel.setBackgroundResource(mWorkingNote.getBgColorResId());
         mHeadViewPanel.setBackgroundResource(mWorkingNote.getTitleBgResId());
     }
@@ -553,6 +602,10 @@ public class NoteEditActivity extends Activity implements OnClickListener,
             menu.findItem(R.id.menu_list_mode).setTitle(R.string.menu_normal_mode);
         } else {
             menu.findItem(R.id.menu_list_mode).setTitle(R.string.menu_list_mode);
+        }
+        MenuItem pinItem = menu.findItem(R.id.menu_pin);
+        if (pinItem != null) {
+            pinItem.setTitle(mWorkingNote.isPinned() ? R.string.menu_unpin : R.string.menu_pin);
         }
         if (mWorkingNote.hasClockAlert()) {
             menu.findItem(R.id.menu_alert).setVisible(false);
@@ -594,11 +647,19 @@ public class NoteEditActivity extends Activity implements OnClickListener,
                 break;
             case R.id.menu_font_size:
                 mFontSizeSelector.setVisibility(View.VISIBLE);
-                findViewById(sFontSelectorSelectionMap.get(mFontSizeId)).setVisibility(View.VISIBLE);
+                setFontSelectionVisible(mFontSizeId, View.VISIBLE);
                 break;
             case R.id.menu_list_mode:
                 mWorkingNote.setCheckListMode(mWorkingNote.getCheckListMode() == 0 ?
                         TextNote.MODE_CHECK_LIST : 0);
+                break;
+            case R.id.menu_pin:
+                mWorkingNote.setPinned(!mWorkingNote.isPinned());
+                saveNote();
+                invalidateOptionsMenu();
+                break;
+            case R.id.menu_edit_tags:
+                showTagEditor();
                 break;
             case R.id.menu_share:
                 getWorkingText();
@@ -633,6 +694,29 @@ public class NoteEditActivity extends Activity implements OnClickListener,
             }
         });
         d.show();
+    }
+
+    /**
+     * 显示标签编辑对话框。标签以逗号分隔，保存时统一规范化。
+     */
+    private void showTagEditor() {
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_edit_tags, null);
+        final EditText etTags = (EditText) view.findViewById(R.id.et_tags);
+        etTags.setText(mWorkingNote.getTags());
+        etTags.setSelection(etTags.length());
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(R.string.dialog_tags_title);
+        builder.setView(view);
+        builder.setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                mWorkingNote.setTags(DataUtils.normalizeTags(etTags.getText().toString()));
+                saveNote();
+            }
+        });
+        builder.setNegativeButton(android.R.string.cancel, null);
+        builder.show();
     }
 
     /**
@@ -706,6 +790,10 @@ public class NoteEditActivity extends Activity implements OnClickListener,
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             AlarmManager alarmManager = ((AlarmManager) getSystemService(ALARM_SERVICE));
             showAlertHeader();
+            if (alarmManager == null) {
+                Log.e(TAG, "AlarmManager is unavailable");
+                return;
+            }
             if(!set) {
                 alarmManager.cancel(pendingIntent);
             } else {
@@ -730,26 +818,32 @@ public class NoteEditActivity extends Activity implements OnClickListener,
      */
     public void onEditTextDelete(int index, String text) {
         int childCount = mEditTextList.getChildCount();
-        if (childCount == 1) {
+        if (childCount <= 1 || index < 0 || index >= childCount) {
             return;
         }
 
         for (int i = index + 1; i < childCount; i++) {
-            ((NoteEditText) mEditTextList.getChildAt(i).findViewById(R.id.et_edit_text))
-                    .setIndex(i - 1);
+            View child = mEditTextList.getChildAt(i);
+            if (child == null) {
+                continue;
+            }
+            NoteEditText editText = (NoteEditText) child.findViewById(R.id.et_edit_text);
+            if (editText != null) {
+                editText.setIndex(i - 1);
+            }
         }
 
         mEditTextList.removeViewAt(index);
         NoteEditText edit = null;
-        if(index == 0) {
-            edit = (NoteEditText) mEditTextList.getChildAt(0).findViewById(
-                    R.id.et_edit_text);
-        } else {
-            edit = (NoteEditText) mEditTextList.getChildAt(index - 1).findViewById(
-                    R.id.et_edit_text);
+        View target = index == 0 ? mEditTextList.getChildAt(0) : mEditTextList.getChildAt(index - 1);
+        if (target != null) {
+            edit = (NoteEditText) target.findViewById(R.id.et_edit_text);
+        }
+        if (edit == null) {
+            return;
         }
         int length = edit.length();
-        edit.append(text);
+        edit.append(text == null ? "" : text);
         edit.requestFocus();
         edit.setSelection(length);
     }
@@ -759,8 +853,9 @@ public class NoteEditActivity extends Activity implements OnClickListener,
      */
     public void onEditTextEnter(int index, String text) {
 
-        if(index > mEditTextList.getChildCount()) {
+        if (index < 0 || index > mEditTextList.getChildCount()) {
             Log.e(TAG, "Index out of mEditTextList boundrary, should not happen");
+            return;
         }
 
         View view = getListItem(text, index);
@@ -769,8 +864,14 @@ public class NoteEditActivity extends Activity implements OnClickListener,
         edit.requestFocus();
         edit.setSelection(0);
         for (int i = index + 1; i < mEditTextList.getChildCount(); i++) {
-            ((NoteEditText) mEditTextList.getChildAt(i).findViewById(R.id.et_edit_text))
-                    .setIndex(i);
+            View child = mEditTextList.getChildAt(i);
+            if (child == null) {
+                continue;
+            }
+            NoteEditText editText = (NoteEditText) child.findViewById(R.id.et_edit_text);
+            if (editText != null) {
+                editText.setIndex(i);
+            }
         }
     }
 
@@ -779,7 +880,8 @@ public class NoteEditActivity extends Activity implements OnClickListener,
      */
     private void switchToListMode(String text) {
         mEditTextList.removeAllViews();
-        String[] items = text.split("\n");
+        String safeText = text == null ? "" : text;
+        String[] items = safeText.split("\n");
         int index = 0;
         for (String item : items) {
             if(!TextUtils.isEmpty(item)) {
@@ -798,17 +900,23 @@ public class NoteEditActivity extends Activity implements OnClickListener,
      * 获取搜索结果的高亮显示文本。
      */
     private Spannable getHighlightQueryResult(String fullText, String userQuery) {
-        SpannableString spannable = new SpannableString(fullText == null ? "" : fullText);
+        final String safeFullText = fullText == null ? "" : fullText;
+        SpannableString spannable = new SpannableString(safeFullText);
         if (!TextUtils.isEmpty(userQuery)) {
-            mPattern = Pattern.compile(userQuery);
-            Matcher m = mPattern.matcher(fullText);
-            int start = 0;
-            while (m.find(start)) {
-                spannable.setSpan(
-                        new BackgroundColorSpan(this.getResources().getColor(
-                                R.color.user_query_highlight)), m.start(), m.end(),
-                        Spannable.SPAN_INCLUSIVE_EXCLUSIVE);
-                start = m.end();
+            try {
+                mPattern = Pattern.compile(userQuery);
+                Matcher m = mPattern.matcher(safeFullText);
+                int start = 0;
+                while (m.find(start)) {
+                    spannable.setSpan(
+                            new BackgroundColorSpan(this.getResources().getColor(
+                                    R.color.user_query_highlight)), m.start(), m.end(),
+                            Spannable.SPAN_INCLUSIVE_EXCLUSIVE);
+                    start = m.end();
+                }
+            } catch (RuntimeException e) {
+                // 非法的正则表达式不应导致编辑界面崩溃，退化为不高亮显示。
+                Log.w(TAG, "Invalid search query:" + userQuery);
             }
         }
         return spannable;
@@ -913,6 +1021,9 @@ public class NoteEditActivity extends Activity implements OnClickListener,
      * 保存当前编辑的便签并更新界面状态。
      */
     private boolean saveNote() {
+        if (mWorkingNote == null) {
+            return false;
+        }
         getWorkingText();
         boolean saved = mWorkingNote.saveNote();
         // 保存成功后通知调用方结果，便于列表刷新。
@@ -957,6 +1068,9 @@ public class NoteEditActivity extends Activity implements OnClickListener,
      * 生成桌面快捷方式图标标题。
      */
     private String makeShortcutIconTitle(String content) {
+        if (content == null) {
+            return "";
+        }
         content = content.replace(TAG_CHECKED, "");
         content = content.replace(TAG_UNCHECKED, "");
         return content.length() > SHORTCUT_ICON_TITLE_MAX_LEN ? content.substring(0,

@@ -56,14 +56,20 @@ public class Note {
         Uri uri = context.getContentResolver().insert(Notes.CONTENT_NOTE_URI, values);
 
         long noteId = 0;
-        try {
-            noteId = Long.valueOf(uri.getPathSegments().get(1));
-        } catch (NumberFormatException e) {
-            Log.e(TAG, "Get note id error :" + e.toString());
-            noteId = 0;
+        if (uri != null) {
+            try {
+                noteId = Long.valueOf(uri.getPathSegments().get(1));
+            } catch (NumberFormatException e) {
+                Log.e(TAG, "Get note id error :" + e.toString());
+                noteId = 0;
+            }
+        } else {
+            Log.e(TAG, "Insert note failed: content resolver returned null uri");
         }
-        if (noteId == -1) {
-            throw new IllegalStateException("Wrong note id:" + noteId);
+        if (noteId <= 0) {
+            // 返回 0 由调用方判断失败，避免在数据库异常时直接抛异常导致崩溃。
+            Log.e(TAG, "Wrong note id:" + noteId);
+            return 0;
         }
         return noteId;
     }
@@ -235,6 +241,11 @@ public class Note {
                     mTextDataValues.put(DataColumns.MIME_TYPE, TextNote.CONTENT_ITEM_TYPE);
                     Uri uri = context.getContentResolver().insert(Notes.CONTENT_DATA_URI,
                             mTextDataValues);
+                    if (uri == null) {
+                        Log.e(TAG, "Insert new text data fail with noteId" + noteId);
+                        mTextDataValues.clear();
+                        return null;
+                    }
                     try {
                         setTextDataId(Long.valueOf(uri.getPathSegments().get(1)));
                     } catch (NumberFormatException e) {
@@ -257,6 +268,11 @@ public class Note {
                     mCallDataValues.put(DataColumns.MIME_TYPE, CallNote.CONTENT_ITEM_TYPE);
                     Uri uri = context.getContentResolver().insert(Notes.CONTENT_DATA_URI,
                             mCallDataValues);
+                    if (uri == null) {
+                        Log.e(TAG, "Insert new call data fail with noteId" + noteId);
+                        mCallDataValues.clear();
+                        return null;
+                    }
                     try {
                         setCallDataId(Long.valueOf(uri.getPathSegments().get(1)));
                     } catch (NumberFormatException e) {

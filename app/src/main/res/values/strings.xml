@@ -73,6 +73,20 @@
     <string name="menu_send_to_desktop">Send to home</string>
     <string name="menu_alert">Remind me</string>
     <string name="menu_remove_remind">Delete reminder</string>
+    <string name="menu_sort">Sort by</string>
+    <string name="menu_sort_modified">Modified time</string>
+    <string name="menu_sort_created">Created time</string>
+    <string name="menu_sort_title">Title</string>
+    <string name="menu_filter_tags">Filter by tag</string>
+    <string name="menu_clear_tag_filter">Clear tag filter</string>
+    <string name="menu_no_tags">No tags yet</string>
+    <string name="format_tag_filter">Tag: %1$s</string>
+    <string name="menu_pin">Pin to top</string>
+    <string name="menu_unpin">Unpin</string>
+    <string name="menu_edit_tags">Edit tags</string>
+    <string name="dialog_tags_title">Edit tags</string>
+    <string name="hint_tags">Separate tags with commas, e.g. work, important</string>
+    <string name="label_pinned">Pinned</string>
     <string name="menu_title_select_folder">Select folder</string>
     <string name="menu_move_parent_folder">Parent folder</string>
     <string name="info_note_enter_desktop">Note added to home</string>
@@ -91,6 +105,7 @@
     <string name="failed_sdcard_export">Export fail</string>
     <string name="format_exported_file_uri">Exported to: %1$s</string>
     <string name="error_export_file">Unable to write the selected file. Please try again.</string>
+    <string name="error_update_note">Unable to update notes. Please try again.</string>
     <string name="format_exported_file_location">Export text file (%1$s) to SD (%2$s) directory</string>
     <!-- Sync -->
     <string name="ticker_syncing">Syncing notes...</string>

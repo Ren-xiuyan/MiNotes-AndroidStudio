@@ -32,7 +32,7 @@ import net.micode.notes.data.Notes.NoteColumns;
 public class NotesDatabaseHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "note.db";
 
-    private static final int DB_VERSION = 4;
+    private static final int DB_VERSION = 5;
 
     /**
      * 数据库表名常量。定义便签主表和数据表的表名。
@@ -65,7 +65,9 @@ public class NotesDatabaseHelper extends SQLiteOpenHelper {
             NoteColumns.LOCAL_MODIFIED + " INTEGER NOT NULL DEFAULT 0," +
             NoteColumns.ORIGIN_PARENT_ID + " INTEGER NOT NULL DEFAULT 0," +
             NoteColumns.GTASK_ID + " TEXT NOT NULL DEFAULT ''," +
-            NoteColumns.VERSION + " INTEGER NOT NULL DEFAULT 0" +
+            NoteColumns.VERSION + " INTEGER NOT NULL DEFAULT 0," +
+            NoteColumns.PINNED + " INTEGER NOT NULL DEFAULT 0," +
+            NoteColumns.TAGS + " TEXT NOT NULL DEFAULT ''" +
         ")";
 
     private static final String CREATE_DATA_TABLE_SQL =
@@ -223,26 +225,21 @@ public class NotesDatabaseHelper extends SQLiteOpenHelper {
      * 插入默认文件夹和通话记录文件夹等系统数据。
      */
     private void createSystemFolder(SQLiteDatabase db) {
+        // 系统文件夹是固定 ID 的保留记录；升级或重建时重复写入应被忽略而不是抛出异常。
+        insertSystemFolder(db, Notes.ID_CALL_RECORD_FOLDER);
+        insertSystemFolder(db, Notes.ID_ROOT_FOLDER);
+        insertSystemFolder(db, Notes.ID_TEMPARAY_FOLDER);
+        insertSystemFolder(db, Notes.ID_TRASH_FOLER);
+    }
+
+    /**
+     * 插入一个系统文件夹；如果同 ID 记录已存在则忽略，避免升级过程中主键冲突。
+     */
+    private void insertSystemFolder(SQLiteDatabase db, long folderId) {
         ContentValues values = new ContentValues();
-
-        values.put(NoteColumns.ID, Notes.ID_CALL_RECORD_FOLDER);
+        values.put(NoteColumns.ID, folderId);
         values.put(NoteColumns.TYPE, Notes.TYPE_SYSTEM);
-        db.insert(TABLE.NOTE, null, values);
-
-        values.clear();
-        values.put(NoteColumns.ID, Notes.ID_ROOT_FOLDER);
-        values.put(NoteColumns.TYPE, Notes.TYPE_SYSTEM);
-        db.insert(TABLE.NOTE, null, values);
-
-        values.clear();
-        values.put(NoteColumns.ID, Notes.ID_TEMPARAY_FOLDER);
-        values.put(NoteColumns.TYPE, Notes.TYPE_SYSTEM);
-        db.insert(TABLE.NOTE, null, values);
-
-        values.clear();
-        values.put(NoteColumns.ID, Notes.ID_TRASH_FOLER);
-        values.put(NoteColumns.TYPE, Notes.TYPE_SYSTEM);
-        db.insert(TABLE.NOTE, null, values);
+        db.insertWithOnConflict(TABLE.NOTE, null, values, SQLiteDatabase.CONFLICT_IGNORE);
     }
 
     /**
@@ -294,24 +291,29 @@ public class NotesDatabaseHelper extends SQLiteOpenHelper {
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         boolean reCreateTriggers = false;
-        boolean skipV2 = false;
 
-        // 按版本号逐级升级，兼容从任意旧版本迁移。
+        // 版本 1 的结构与当前结构差异过大，直接按最新建表语句重建（历史数据无法可靠迁移）。
+        // 重建后表结构已经是最新的，因此把 oldVersion 直接推进到目标版本，避免重复 ALTER。
         if (oldVersion == 1) {
             upgradeToV2(db);
-            skipV2 = true;
-            oldVersion++;
-        }
-
-        if (oldVersion == 2 && !skipV2) {
-            upgradeToV3(db);
+            oldVersion = newVersion;
             reCreateTriggers = true;
-            oldVersion++;
-        }
-
-        if (oldVersion == 3) {
-            upgradeToV4(db);
-            oldVersion++;
+        } else {
+            // 其余版本按版本号逐级升级，兼容从任意旧版本迁移。
+            if (oldVersion < 3) {
+                upgradeToV3(db);
+                oldVersion = 3;
+            }
+            if (oldVersion < 4) {
+                upgradeToV4(db);
+                oldVersion = 4;
+                reCreateTriggers = true;
+            }
+            if (oldVersion < 5) {
+                upgradeToV5(db);
+                oldVersion = 5;
+                reCreateTriggers = true;
+            }
         }
 
         // 升级完成后重建触发器，保证数据一致性。
@@ -352,7 +354,18 @@ public class NotesDatabaseHelper extends SQLiteOpenHelper {
         ContentValues values = new ContentValues();
         values.put(NoteColumns.ID, Notes.ID_TRASH_FOLER);
         values.put(NoteColumns.TYPE, Notes.TYPE_SYSTEM);
-        db.insert(TABLE.NOTE, null, values);
+        // 回收站文件夹可能已由旧版本创建，使用 IGNORE 避免主键冲突导致升级失败。
+        db.insertWithOnConflict(TABLE.NOTE, null, values, SQLiteDatabase.CONFLICT_IGNORE);
+    }
+
+    /**
+     * 把数据库从版本 4 升级到版本 5：增加置顶标记和标签字段。
+     */
+    private void upgradeToV5(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE " + TABLE.NOTE + " ADD COLUMN " + NoteColumns.PINNED
+                + " INTEGER NOT NULL DEFAULT 0");
+        db.execSQL("ALTER TABLE " + TABLE.NOTE + " ADD COLUMN " + NoteColumns.TAGS
+                + " TEXT NOT NULL DEFAULT ''");
     }
 
     /**

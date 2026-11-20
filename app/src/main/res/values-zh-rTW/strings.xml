@@ -70,6 +70,20 @@
     <string name="menu_send_to_desktop">發送到桌面</string>
     <string name="menu_alert">提醒我</string>
     <string name="menu_remove_remind">刪除提醒</string>
+    <string name="menu_sort">排序方式</string>
+    <string name="menu_sort_modified">按修改時間</string>
+    <string name="menu_sort_created">按建立時間</string>
+    <string name="menu_sort_title">按標題</string>
+    <string name="menu_filter_tags">依標籤篩選</string>
+    <string name="menu_clear_tag_filter">清除標籤篩選</string>
+    <string name="menu_no_tags">尚無標籤</string>
+    <string name="format_tag_filter">標籤：%1$s</string>
+    <string name="menu_pin">置頂</string>
+    <string name="menu_unpin">取消置頂</string>
+    <string name="menu_edit_tags">編輯標籤</string>
+    <string name="dialog_tags_title">編輯標籤</string>
+    <string name="hint_tags">多個標籤用逗號分隔，例如：工作, 重要</string>
+    <string name="label_pinned">已置頂</string>
     <string name="menu_title_select_folder">選擇文件夾</string>
     <string name="menu_move_parent_folder">上一級文件夾</string>
     <string name="info_note_enter_desktop">已添加到桌面</string>
@@ -86,6 +100,7 @@
     <string name="failed_sdcard_export">導出失敗</string>
     <string name="format_exported_file_uri">已導出到：%1$s</string>
     <string name="error_export_file">無法寫入所選檔案，請重試。</string>
+    <string name="error_update_note">更新便籤失敗，請重試。</string>
     <string name="format_exported_file_location">已將文本文件(%1$s)導出至SD(%2$s)目錄</string>
     <!-- Sync -->
     <string name="ticker_syncing">同步便簽...</string>

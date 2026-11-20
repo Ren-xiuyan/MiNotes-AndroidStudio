@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- 编辑便签标签的对话框布局：单个输入框，支持逗号分隔多个标签。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingLeft="20dip"
+    android:paddingTop="8dip"
+    android:paddingRight="20dip"
+    android:paddingBottom="4dip">
+
+    <EditText
+        android:id="@+id/et_tags"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:gravity="top|start"
+        android:hint="@string/hint_tags"
+        android:inputType="text"
+        android:maxLines="4"
+        android:minLines="1" />
+</LinearLayout>
